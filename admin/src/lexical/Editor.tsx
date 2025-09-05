@@ -84,6 +84,7 @@ interface LexicalEditorProps {
   onChange: (newValue: SerializedEditorState<SerializedLexicalNode>) => void;
   ref: React.ForwardedRef<HTMLDivElement>;
   fieldName: string;
+  expectedEditorState?: SerializedEditorState<SerializedLexicalNode>;
 }
 
 export default function Editor(props: LexicalEditorProps): JSX.Element {
@@ -181,7 +182,6 @@ export default function Editor(props: LexicalEditorProps): JSX.Element {
         <EmojisPlugin />
         <HashtagPlugin />
         <KeywordsPlugin />
-        <SpeechToTextPlugin />
         <AutoLinkPlugin />
         {isRichText ? (
           <>
@@ -267,7 +267,7 @@ export default function Editor(props: LexicalEditorProps): JSX.Element {
       </div>
       <WordCountPlugin limit={CHARACTER_LIMIT} charset={isCharLimit ? 'UTF-16' : 'UTF-8'} />
       {showTreeView && <TreeViewPlugin />}
-      <StrapiOnChangePlugin onChange={onChange} />
+      <StrapiOnChangePlugin onChange={onChange} expectedEditorState={props.expectedEditorState} />
       <StrapiImagePlugin />
     </>
   );

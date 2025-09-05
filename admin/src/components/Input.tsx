@@ -3,7 +3,7 @@ import * as React from 'react';
 import { Field, Flex } from '@strapi/design-system';
 import { useFetchClient } from '@strapi/strapi/admin';
 import { debounce } from 'lodash';
-import { useIntl } from 'react-intl';
+import { MessageDescriptor, useIntl } from 'react-intl';
 
 import { InitialConfigType, LexicalComposer } from '@lexical/react/LexicalComposer';
 import { SerializedEditorState, SerializedElementNode, SerializedLexicalNode } from 'lexical';
@@ -18,7 +18,9 @@ import Nodes from '../lexical/nodes';
 
 import { SerializedLinkNode } from '@lexical/link';
 import { InputProps } from '@strapi/strapi/admin';
-import { SerializedStrapiImageNode } from 'src/lexical/nodes/StrapiImageNode';
+import { SerializedStrapiImageNode } from '../lexical/nodes/StrapiImageNode';
+
+import equal from 'fast-deep-equal';
 
 interface CustomFieldsComponentProps {
   attribute: {
@@ -45,9 +47,32 @@ const Input = React.forwardRef<HTMLDivElement, CustomFieldsComponentProps & Inpu
     const { formatMessage } = useIntl();
     const { get } = useFetchClient();
 
+    // Track if change is done by the user or by strapi, to support locale switching and locale prefilling
+    const [expectedEditorState, setExpectedEditorState] = React.useState<
+      SerializedEditorState<SerializedLexicalNode> | undefined
+    >(undefined);
+
+    const [flagUserInput, setFlagUserInput] = React.useState(false);
+
+    const [lastValue, setLastValue] =
+      React.useState<SerializedEditorState<SerializedLexicalNode>>(value);
+
+    // Detect value change from strapi ("outside")
+    React.useEffect(() => {
+      if (!equal(value, lastValue)) {
+        setLastValue(value);
+        if (flagUserInput) {
+          setFlagUserInput(false);
+          setExpectedEditorState(undefined);
+        } else {
+          setExpectedEditorState(value);
+        }
+      }
+    }, [value]);
+
     const handleChange = async (newValue: SerializedEditorState<SerializedLexicalNode>) => {
       // Avoid unnecessary draft/modified status of entry
-      if (JSON.stringify(value) === JSON.stringify(newValue)) {
+      if (equal(value, newValue)) {
         return;
       }
 
@@ -55,6 +80,7 @@ const Input = React.forwardRef<HTMLDivElement, CustomFieldsComponentProps & Inpu
       onChange({
         target: { name, type: attribute.type, value: newValue },
       });
+      setFlagUserInput(true);
 
       // Parse lexical document for images and links
       const mediaNodes = ['strapi-image'];
@@ -220,7 +246,12 @@ const Input = React.forwardRef<HTMLDivElement, CustomFieldsComponentProps & Inpu
               <LexicalComposer initialConfig={initialConfig}>
                 <TableContext>
                   <ToolbarContext>
-                    <LexicalEditor onChange={handleChangeCb} ref={ref} fieldName={name} />
+                    <LexicalEditor
+                      onChange={handleChangeCb}
+                      ref={ref}
+                      fieldName={name}
+                      expectedEditorState={expectedEditorState}
+                    />
                   </ToolbarContext>
                 </TableContext>
               </LexicalComposer>
